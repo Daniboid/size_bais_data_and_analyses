@@ -1,13 +1,9 @@
 ---
 title: "LDT Size Bias Analyses"
-author: "Dani"
+author: "Dani Larranaga"
 date: "`r Sys.Date()`"
 output: pdf_document
 ---
-
-If using this data or code, please cite: 
-`Larranaga, D., & Sereno, A.B. (2022) Bigger is really better:  Resolution of conflicting behavioral evidence for semantic size bias in a lexical decision task. *Under Review*`
-
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -16,55 +12,80 @@ if(!require(irr))       {install.packages("irr");       require(irr)}
 if(!require(tidyr))     {install.packages("tidyr");     require(tidyr)}
 if(!require(lme4))      {install.packages("lme4");      require(lme4)}
 if(!require(lmerTest))  {install.packages("lmerTest");  require(lmerTest)}
-
 if(!require(bmlm))      {install.packages("bmlm");      require(bmlm)}
-# if(!require(rstan))     {install.packages("rstan");     require(rstan)}
-# if(!require(rstantools)){install.packages("rstantools");require(rstantools)}
-# if(!require(Rcpp))      {install.packages("Rcpp");      require(Rcpp)}
+if(!require(rstatix))   {install.packages("rstatix");   require(rstatix)}
+
+# Load Data
+load("LDT_OpenData.Rdata")
+
+## Bayesian Mediation Analyses take *FOREVER* to run, so loading this data is much faster.
+load("Accuracy_Gender_BMLM.RData")
+load("Accuracy_Familiarity_BMLM.RData")
+load("RT_Gender_BMLM.RData")
+load("RT_Familiarity_BMLM.RData")
 ```
 
 
 # Study 1: Direct Replication
 
 ## Participant Level:
-```{r}
-df.PL = read.csv("Participant.csv")
-```
 
 ### RT
 ```{r}
-t.PL.RT = t.test(df.PL$Small_RT, df.PL$Large_RT, paired = T)
+t.PL.RT = t.test(LDT.participantLevel$RT_Small, LDT.participantLevel$RT_Large, paired = T)
 t.PL.RT
-t2d(t.PL.RT$statistic, n=108)
+
+d = unname(t2d(t.PL.RT$statistic, n=108))
+d
 ```
 
 ### Error Rate
 ```{r}
-t.PL.ER = t.test(df.PL$Small_ER, df.PL$Large_ER, paired = T)
+t.PL.ER = t.test(LDT.participantLevel$Small.Accuracy, LDT.participantLevel$Large.Accuracy, paired = T)
 t.PL.ER
-t2d(t.PL.ER$statistic, n=108)
+
+d = unname(t2d(t.PL.ER$statistic, n=108))
+d
+```
+
+### Inverse Efficiency Score (IES)
+```{r}
+t.PL.IES = t.test(LDT.participantLevel$Small_IES, LDT.participantLevel$Large_IES, paired = T)
+t.PL.IES
+
+d = unname(t2d(t.PL.IES$statistic, n=108))
+d
 ```
 
 
 ## Word-Pair Level:
-```{r}
-df.WP = read.csv("WordPair.csv")
-```
 
 ### RT
 ```{r}
-t.WP.RT = t.test(df.WP$Small_RT, df.WP$Large_RT, paired = T)
+t.WP.RT = t.test(LDT.wordPairLevel$RT_Small, LDT.wordPairLevel$RT_Large, paired = T)
 t.WP.RT
-t2d(t.WP.RT$statistic, n=108)
+
+d = unname(t2d(t.WP.RT$statistic, n=108))
+d
 ```
 
 ### Error Rate
 ```{r}
-t.WP.ER = t.test(df.WP$Small_ER, df.WP$Large_ER, paired = T)
+t.WP.ER = t.test(LDT.wordPairLevel$WP.Acc.Small, LDT.wordPairLevel$WP.Acc.Large, paired = T)
 t.WP.ER
-t2d(t.WP.ER$statistic, n=108)
+
+d = unname(t2d(t.WP.ER$statistic, n=108))
+d
 ```
 
+### IES
+```{r}
+t.WP.IES = t.test(LDT.wordPairLevel$Small_IES, LDT.wordPairLevel$Large_IES, paired = T)
+t.WP.IES
+
+d = unname(t2d(t.WP.IES$statistic, n=108))
+d
+```
 
 
 
@@ -72,41 +93,44 @@ t2d(t.WP.ER$statistic, n=108)
 # Study 2: Norming Differences
 
 ```{r}
-df.Norm = read.csv("Norming.csv")
-
-df.Norm.scaled = df.Norm[,1:3]
-for(cn in colnames(df.Norm[4:17])){
-  df.Norm.scaled[,cn] = scale(df.Norm[,cn])
-}
-
-df.Norm.WP = pivot_wider(df.Norm[,2:10],
+df.Norm.WP = pivot_wider(WR.scaledDimsOfInterest[,2:10],
                          id_cols = c("WordPair"),
                          names_from = c("size"), 
                          values_from = c(3:9))
 ```
 
-## ICCs (may need to switch `s` to "average" rather than "single")
-```{r}
+## Intraclass Correlations
+
+USING THE SCALED VARIABLES!!! (because GN has them on different scales)
+
+```{r results = 'asis'}
 
 m = "two"
 t = "agreement"
 s = "single"
 
-size_icc  = icc(cbind(df.Norm.scaled$PU.SIZE, df.Norm.scaled$GN.SIZE),
-               model = m, type = t, unit = s)
-gend_icc  = icc(cbind(df.Norm.scaled$PU.GEND, df.Norm.scaled$GN.GEND),
-               model = m, type = t, unit = s)
-val_icc   = icc(cbind(df.Norm.scaled$PU.VAL, df.Norm.scaled$GN.VAL),
-               model = m, type = t, unit = s)
-conc_icc  = icc(cbind(df.Norm.scaled$PU.CNC, df.Norm.scaled$GN.CNC),
-               model = m, type = t, unit = s)
-img_icc  = icc(cbind(df.Norm.scaled$PU.IMAG, df.Norm.scaled$GN.IMAG),
-               model = m, type = t, unit = s)
-fam_icc   = icc(cbind(df.Norm.scaled$PU.FAM, df.Norm.scaled$GN.FAM),
-               model = m, type = t, unit = s)
-arou_icc  = icc(cbind(df.Norm.scaled$PU.AROU, df.Norm.scaled$GN.AROU),
-               model = m, type = t, unit = s)
 
+size_icc = icc(cbind(WR.scaledDimsOfInterest$Size,
+                     WR.scaledDimsOfInterest$SIZE.Glasgow_Norms),
+               model = m, type = t, unit = s)
+val_icc  = icc(cbind(WR.scaledDimsOfInterest$Valence,
+                    WR.scaledDimsOfInterest$VAL.Glasgow_Norms),
+               model = m, type = t, unit = s)
+gend_icc = icc(cbind(WR.scaledDimsOfInterest$Gender,
+                     WR.scaledDimsOfInterest$GEND.Glasgow_Norms),
+               model = m, type = t, unit = s)
+img_icc  = icc(cbind(WR.scaledDimsOfInterest$Imagability,
+                     WR.scaledDimsOfInterest$IMAG.Glasgow_Norms),
+               model = m, type = t, unit = s)
+conc_icc = icc(cbind(WR.scaledDimsOfInterest$Concreteness,
+                     WR.scaledDimsOfInterest$CNC.Glasgow_Norms),
+               model = m, type = t, unit = s)
+arou_icc = icc(cbind(WR.scaledDimsOfInterest$Arousal,
+                     WR.scaledDimsOfInterest$AROU.Glasgow_Norms),
+               model = m, type = t, unit = s)
+fam_icc  = icc(cbind(WR.scaledDimsOfInterest$Familiarity,
+                     WR.scaledDimsOfInterest$FAM.Glasgow_Norms),
+               model = m, type = t, unit = s)
 
 ests = c(size_icc$value, val_icc$value, gend_icc$value, img_icc$value,
          conc_icc$value, arou_icc$value, fam_icc$value)
@@ -123,407 +147,275 @@ rownames(forkable) = c("size", "valence", "gender", "imageability",
 
 
 print(knitr::kable(forkable[order(forkable$ests, decreasing = T),], bookend = T, digits = 3))
+
+
+
 ```
 
-## Paired t-tests Comparing GN and PU
-```{r}
+
+## *t*s between US and UK
+
+```{r demnsionalTs, results='asis'}
 forkable = data.frame(Dimension = c(""), 
                       t.value = c(0),
                       p.value = c(0))
 forkable = forkable[-1,]
 
-for(d in 4:10){
-  d.PU = d
-  d.GN = d+7
+for(d in 1:7){
+  d.PU = d*2+2
+  d.GN = d*2+3
   
-  v = unlist(strsplit(names(df.Norm.scaled)[d.PU],"\\."))[2]
+  v = names(WR.scaledDimsOfInterest)[d.PU]
   
-  tmp.t = t.test(df.Norm.scaled[,d.PU], df.Norm.scaled[,d.GN], 
-                 paired = T)
+  tmp.t = t.test(WR.scaledDimsOfInterest[,d.PU], WR.scaledDimsOfInterest[,d.GN], paired = T)
   
   forkable[d,] = cbind(v, round(tmp.t$statistic,3), round(tmp.t$p.value,3))
 }
 
-print(knitr::kable(na.omit(forkable[order(forkable$t.value),]), bookend = T, row.names = F, digits = 3))
+print(knitr::kable(forkable[order(forkable$t.value),], bookend = T, row.names = F, digits = 3))
 ```
 
-## Paired t-tests Comparing Small and Large Words
-```{r}
+
+## *t*s between word groups
+
+```{r wordGroupTs, results='asis'}
 forkable = data.frame(Dimension = c(""), 
                       `S_Mean_PU` = c(0),
                       `L_Mean_PU` = c(0),
                       `S_95CI_PU` = c(0),
                       `L_95CI_PU` = c(0),
                       t.value.PU = c(0),
-                      p.value.PU = c(0)  
-                      )
+                      p.value.PU = c(0), 
+                      `S Mean GN` = c(0),
+                      `L Mean GN` = c(0),
+                      t.value.GN = c(0),
+                      p.value.GN = c(0))
 forkable = forkable[-1,]
 
-for(d in 1:7){
-  d.s.PU = d*2
-  d.l.PU = d*2+1
+for(d in 1:8){
+  d.s.PU = d*4-2
+  d.l.PU = d*4-1
+  d.s.GN = d*4
+  d.l.GN = d*4+1
   
-  v = unlist(strsplit(names(df.Norm.WP)[d.s.PU],"\\.|_"))[2]
+  v = gsub("_Small", "", names(WR.wordPairs)[d.s.PU])
   
-  sm.PU      = mean(df.Norm.WP[[d.s.PU]], na.rm = T)
-  lm.PU      = mean(df.Norm.WP[[d.l.PU]], na.rm = T)
-  sm.PU.95CI = 1.96*(sd(df.Norm.WP[[d.s.PU]], na.rm = T) / sqrt(length(df.Norm.WP[[d.s.PU]])))
-  lm.PU.95CI = 1.96*(sd(df.Norm.WP[[d.l.PU]], na.rm = T) / sqrt(length(df.Norm.WP[[d.l.PU]])))
-  tmp.t.PU = t.test(df.Norm.WP[[d.l.PU]], df.Norm.WP[[d.s.PU]], paired = T)
+  sm.PU      = mean(WR.wordPairs[,d.s.PU], na.rm = T)
+  lm.PU      = mean(WR.wordPairs[,d.l.PU], na.rm = T)
+  sm.PU.95CI = 1.96*(sd(WR.wordPairs[,d.s.PU], na.rm = T) / sqrt(length(WR.wordPairs[,d.s.PU])))
+  lm.PU.95CI = 1.96*(sd(WR.wordPairs[,d.l.PU], na.rm = T) / sqrt(length(WR.wordPairs[,d.l.PU])))
   
-  forkable[d,] = cbind(v, round(sm.PU,3), round(lm.PU,3), round(sm.PU.95CI,4), round(lm.PU.95CI,4), round(tmp.t.PU$statistic,3), round(tmp.t.PU$p.value,3) 
-                       )
+  sm.GN = mean(WR.wordPairs[,d.s.GN], na.rm = T)
+  lm.GN = mean(WR.wordPairs[,d.l.GN], na.rm = T)
+  
+  tmp.t.PU = t.test(WR.wordPairs[, d.l.PU], WR.wordPairs[, d.s.PU], paired = T)
+  tmp.t.GN = t.test(WR.wordPairs[, d.l.GN], WR.wordPairs[, d.s.GN], paired = T)
+  
+  forkable[d,] = cbind(v, round(sm.PU,3), round(lm.PU,3), round(sm.PU.95CI,4), round(lm.PU.95CI,4), round(tmp.t.PU$statistic,3), round(tmp.t.PU$p.value,3), 
+                          round(sm.GN,3), round(lm.GN,3), round(tmp.t.GN$statistic,3), round(tmp.t.GN$p.value,3))
 }
 
-print(knitr::kable(forkable[order(forkable$t.value.PU),], bookend = T, row.names = F, digits = 3))
+print(knitr::kable(forkable, bookend = T, row.names = F, digits = 3))
+
+forGraph = pivot_longer(forkable[,1:5],2:5, names_to = c("size","scale", "locus"), names_sep = "_")
+forGraph = data.frame(pivot_wider(forGraph,id_cols = c("size"), names_from = c(1,3)))
+
+forGraph$size = factor(forGraph$size, levels = c("S", "L"))
+for(co in 2:15){
+  forGraph[,co] = as.numeric(forGraph[,co])
+}
+```
+
+## ANOVAs
+```{r results='hide', warning=FALSE}
+# Compare GN to PU on *scaled* dims o interest
+forkable = data.frame(Dimension = c(""),
+                      `S_Mean_PU` = c(0),
+                      `L_Mean_PU` = c(0),
+                      `S Mean GN` = c(0),
+                      `L Mean GN` = c(0),
+                      effect = c(""),
+                      F.val = c(0),
+                      df_a = c(0),
+                      df_e = c(0),
+                      eta_sq = c(0),
+                      p.val = c(0))
+forkable = forkable[-1,]
+
+for(d in names(WR.scaledInteract)[5:11]){
+
+  sm.PU = mean(dplyr::pull(WR.scaledInteract[WR.scaledInteract$size == "Small" & WR.scaledInteract$Location == "PU",d]),
+                     na.rm = T)
+  lm.PU = mean(dplyr::pull(WR.scaledInteract[WR.scaledInteract$size == "Large" & 
+                                         WR.scaledInteract$Location == "PU", d]),
+                     na.rm = T)
+  sm.GN = mean(dplyr::pull(WR.scaledInteract[WR.scaledInteract$size == "Small" & 
+                                         WR.scaledInteract$Location == "GN", d]),
+                     na.rm = T)
+  lm.GN = mean(dplyr::pull(WR.scaledInteract[WR.scaledInteract$size == "Large" & 
+                                         WR.scaledInteract$Location == "GN", d]),
+                     na.rm = T)
+  forkable = rbind(forkable,
+                   data.frame(Dimension = d, 
+                              `S_Mean_PU` = sm.PU, 
+                              `L_Mean_PU` = lm.PU, 
+                              `S Mean GN` = sm.GN, 
+                              `L Mean GN` = lm.GN, 
+                              effect = "",
+                              F.val = NaN,
+                              df_a = NaN,
+                              df_e = NaN,
+                              eta_sq = NaN,
+                              p.val = NaN)
+                   )
+  
+  tmp.ANOVA = WR.scaledInteract %>% 
+                anova_test(dv = d,
+                           wid = WordPair,
+                           within = size,
+                           between = Location) 
+  cat(paste("\n\n", d, "\n\n"))
+  print(tmp.ANOVA)
+  for (r in 1:nrow(tmp.ANOVA)) {
+    forkable = rbind(forkable,
+                     data.frame(Dimension = NA, 
+                              `S_Mean_PU` = NaN, 
+                              `L_Mean_PU` = NaN, 
+                              `S Mean GN` = NaN, 
+                              `L Mean GN` = NaN, 
+                              effect = tmp.ANOVA$Effect[r],
+                              F.val = round(tmp.ANOVA$F[r], 3),
+                              df_a = round(tmp.ANOVA$DFn[r],3),
+                              df_e = round(tmp.ANOVA$DFd[r], 3),
+                              eta_sq = round(tmp.ANOVA$ges[r],3),
+                              p.val = round(tmp.ANOVA$p[r], 3))
+    )
+  }
+}
+```
+```{r results='asis'}
+options(knitr.kable.NA = "")
+print(knitr::kable(forkable, bookend = T, row.names = F, digits = 3))
+```
+
+# Study 3: Multi-level Mediation
+
+## RT
+```{r echo=T}
+LDT.finalData$Familiarity_c = LDT.finalData$Familiarity - mean(LDT.finalData$Familiarity)
+LDT.finalData$Gender   = 7 - LDT.finalData$Femininity
+LDT.finalData$Gender_c = LDT.finalData$Gender - mean(LDT.finalData$Gender)
+LDT.finalData$Size_c   = LDT.finalData$Size - mean(LDT.finalData$Size)
+
+WR.data$Familiarity_c = WR.data$Familiarity - mean(WR.data$Familiarity)
+WR.data$Size_c = WR.data$Size - mean(WR.data$Size)
+WR.data$Gender_c = WR.data$Gender - mean(WR.data$Gender)
+
+mlm_1 = lmer(RT ~ Size_c *  + (1 | SubID), LDT.finalData)
+summary(mlm_1)
+
 ```
 
 
+### Familiarity and Gender Plots
+```{r echo=T}
+# Familiarity
+mlm_3 = lmer(RT ~ Familiarity_c + Size_c + (1 | SubID), LDT.finalData)
+summary(mlm_3)
+
+leg_1 = lmer(Familiarity_c ~ Size_c + (1|SubID), LDT.finalData[LDT.finalData$RT,])
+summary(leg_1)
 
 
+# rt_fam_bmlm = mlm(LDT.finalData[!is.na(LDT.finalData$RT),],
+#                   id = "SubID",
+#                   x = "Size_c",
+#                   m = "Familiarity_c",
+#                   y = "RT")
+mlm_summary(rt_fam_bmlm)
 
+# Gender
+mlm_2 = lmer(RT ~ Gender_c + Size_c + (1 | SubID), LDT.finalData)
+summary(mlm_2)
 
-# Study 3: Continuous Predictors and Multi-Level Mediation Analyses
-```{r}
-df.MLM = read.csv("MLM.csv")
-```
+leg_2 = lm(Gender ~ Size, WR.data)
+summary(leg_2)
 
-## Base RT ~ Size Regression
-```{r}
-mlm.sizeOnly = lmer(RT ~ SIZE + (1|SubID), data = df.MLM)
-summary(mlm.sizeOnly)
-```
+# rt_gend_bmlm = mlm(LDT.finalData[!is.na(LDT.finalData$RT),],
+#                   id = "SubID",
+#                   x = "Size_c",
+#                   m = "Gender_c",
+#                   y = "RT")
+mlm_summary(rt_gend_bmlm)
 
-## A paths
-```{r}
-mlm.sizePredGend = lmer(GEND ~ SIZE + (1|SubID), data = df.MLM)
-summary(mlm.sizePredGend)
+# Double
+mlm_4 = lmer(RT ~ Familiarity_c + Gender_c + Size_c + (1 | SubID), LDT.finalData)
+summary(mlm_4)
 
+# Fit
+anova(mlm_1, mlm_2, mlm_3, mlm_4)
 
-mlm.sizePredFam = lmer(FAM ~ SIZE + (1|SubID), data = df.MLM)
-summary(mlm.sizePredFam)
-```
-
-## Size Suppressed by Familiarity
-```{r}
-mlm.sizeAndFam = lmer(RT ~ SIZE + FAM + (1|SubID), data = df.MLM)
-summary(mlm.sizeAndFam)
-```
-
-
-## Size Confounded with Gender
-```{r}
-mlm.sizeAndGend = lmer(RT ~ SIZE + GEND + (1|SubID), data = df.MLM)
-summary(mlm.sizeAndGend)
-```
-
-## Double Mediation of Size Effect by both Size and Familiarity
-
-```{r}
-mlm.Full = lmer(RT ~ SIZE + FAM + GEND + (1|SubID), data = df.MLM)
-summary(mlm.Full)
 ```
 
 
-## 'bmlm' version
+## ACC
+```{r echo=T}
+mlm_1 = glmer(ACCURACY ~ Size + (1 | SubID), LDT.finalData, family = "binomial", control=glmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e6)))
+summary(mlm_1)
+exp(fixef(mlm_1))
 
-### Size Suppressed by Familiarity
-```{r}
-mlm.fam = mlm(d = df.MLM,
-              id = "SubID",
-              x  = "SIZE",
-              m  = "FAM",
-              y  = "RT")
-mlm_summary(mlm.fam)
 ```
 
 
-### Size Confounded with Gender
-```{r}
-mlm.gend = mlm(d = df.MLM,
-              id = "SubID",
-              x  = "SIZE",
-              m  = "GEND",
-              y  = "RT")
-mlm_summary(mlm.gend)
+### Familiarity and Gender Plots
+```{r echo=T}
+
+
+
+# Familiarity
+mlm_3 = glmer(ACCURACY ~ Familiarity_c + Size_c + (1 | SubID), LDT.finalData, family = "binomial", control=glmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e5)))
+summary(mlm_3)
+exp(fixef(mlm_3))
+
+leg_1 = lm(Familiarity ~ Size, WR.data)
+summary(leg_1)
+
+# acc_fam_bmlm = mlm(LDT.finalData[!is.na(LDT.finalData$RT),],
+#                   id = "SubID",
+#                   x = "Size_c",
+#                   m = "Familiarity_c",
+#                   y = "ACCURACY",
+#                   binary_y = T)
+mlm_summary(acc_fam_bmlm)
+
+
+# Gender
+mlm_2 = glmer(ACCURACY ~ Gender_c + Size_c + (1 | SubID), LDT.finalData, family = "binomial", control=glmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e5)))
+summary(mlm_2)
+exp(fixef(mlm_2))
+
+leg_2 = lm(Gender ~ Size, WR.data)
+summary(leg_2)
+
+# acc_gend_bmlm = mlm(LDT.finalData[!is.na(LDT.finalData$RT),],
+#                   id = "SubID",
+#                   x = "Size_c",
+#                   m = "Gender_c",
+#                   y = "ACCURACY",
+#                   binary_y = T)
+mlm_summary(acc_gend_bmlm)
+# save(list = c("rt_gend_bmlm", "rt_fam_bmlm", "acc_fam_bmlm", "acc_gend_bmlm"), 
+#      file = "All_Bayesian_Mediations.RData")
+
+
+## Double
+mlm_4 = glmer(ACCURACY ~ Familiarity_c + Gender_c + Size_c + (1 | SubID), LDT.finalData, family = "binomial", control=glmerControl(optimizer="bobyqa",optCtrl=list(maxfun=2e5)))
+summary(mlm_4)
+exp(fixef(mlm_4))
+
+
+# Best Fit
+anova(mlm_1, mlm_2, mlm_3, mlm_4)
+
 ```
-
-
-
-<!-- ### Double Mediation of Size Effect by both Size and Familiarity -->
-
-<!-- #### Modified code for Double Mediation -->
-
-<!-- This code has been modified from Vuorre & Bolger's (2018) original code -->
-
-<!-- ```{r} -->
-
-<!-- stancode = " -->
-<!-- data{int<lower=1> N;             // Number of observations -->
-<!--     int<lower=1> J;             // Number of participants -->
-<!--     int<lower=1,upper=J> id[N]; // Participant IDs -->
-<!--     vector[N] X;                // Manipulated variable -->
-<!--     vector[N] M1;                // Mediator -->
-<!--     vector[N] M2;                // Mediator -->
-<!--     // Priors -->
-<!--     real prior_dm1; -->
-<!--     real prior_dm2; -->
-<!--     real prior_dy; -->
-<!--     real prior_a1; -->
-<!--     real prior_b1; -->
-<!--     real prior_a2; -->
-<!--     real prior_b2; -->
-<!--     real prior_cp; -->
-<!--     real prior_tau_dm1; -->
-<!--     real prior_tau_dm2; -->
-<!--     real prior_tau_dy; -->
-<!--     real prior_tau_a1; -->
-<!--     real prior_tau_b1; -->
-<!--     real prior_tau_a2; -->
-<!--     real prior_tau_b2; -->
-<!--     real prior_tau_cp; -->
-<!--     real prior_lkj_shape; -->
-
-<!--     vector[N] Y;                // Continuous outcome -->
-<!-- } -->
-<!-- transformed data{ -->
-<!--     int K;                      // Number of predictors -->
-<!--     K = 8; -->
-<!-- } -->
-<!-- parameters{ -->
-<!--     // Regression Y on X, M1, and M2 -->
-<!--     real dy;                    // Intercept -->
-<!--     real cp;                    // X to Y effect -->
-<!--     real b1;                     // M1 to Y effect -->
-<!--     real b2;                     // M2 to Y effect -->
-<!--     // Regression M1 on X -->
-<!--     real dm1;                    // Intercept -->
-<!--     real a1;                     // X to M effect -->
-<!--     real<lower=0> sigma_m1;      // Residual -->
-<!--     // Regression M2 on X -->
-<!--     real dm2;                    // Intercept -->
-<!--     real a2;                     // X to M effect -->
-<!--     real<lower=0> sigma_m2;      // Residual -->
-
-<!--     // Correlation matrix and SDs of participant-level varying effects -->
-<!--     cholesky_factor_corr[K] L_Omega; -->
-<!--     vector<lower=0>[K] Tau; -->
-
-<!--     // Standardized varying effects -->
-<!--     matrix[K, J] z_U; -->
-
-<!--     real<lower=0> sigma_y;      // Residual -->
-<!-- } -->
-<!-- transformed parameters { -->
-<!--     // Participant-level varying effects -->
-<!--     matrix[J, K] U; -->
-<!--     U = (diag_pre_multiply(Tau, L_Omega) * z_U)'; -->
-<!-- } -->
-<!-- model { -->
-<!--     // Means of linear models -->
-<!--     vector[N] mu_y; -->
-<!--     vector[N] mu_m1; -->
-<!--     vector[N] mu_m2; -->
-<!--     // Regression parameter priors -->
-<!--     dy ~ normal(0, prior_dy); -->
-<!--     dm1 ~ normal(0, prior_dm1); -->
-<!--     a1 ~ normal(0, prior_a1); -->
-<!--     b1 ~ normal(0, prior_b1);     -->
-<!--     dm2 ~ normal(0, prior_dm2); -->
-<!--     a2 ~ normal(0, prior_a2); -->
-<!--     b2 ~ normal(0, prior_b2); -->
-<!--     cp ~ normal(0, prior_cp); -->
-<!--     // SDs and correlation matrix -->
-<!--     Tau[1] ~ cauchy(0, prior_tau_cp);   // u_cp -->
-<!--     Tau[2] ~ cauchy(0, prior_tau_b1);   // u_b1 -->
-<!--     Tau[3] ~ cauchy(0, prior_tau_b2);   // u_b2 -->
-<!--     Tau[4] ~ cauchy(0, prior_tau_dy);   // u_intercept_y -->
-<!--     Tau[5] ~ cauchy(0, prior_tau_a1);   // u_a1 -->
-<!--     Tau[6] ~ cauchy(0, prior_tau_dm1);  // u_intercept_m1  -->
-<!--     Tau[7] ~ cauchy(0, prior_tau_a2);   // u_a2   -->
-<!--     Tau[8] ~ cauchy(0, prior_tau_dm2);  // u_intercept_m2 -->
-<!--     L_Omega ~ lkj_corr_cholesky(prior_lkj_shape); -->
-<!--     // Allow vectorized sampling of varying effects via stdzd z_U -->
-<!--     to_vector(z_U) ~ normal(0, 1); -->
-
-<!--     // Regressions -->
-<!--     for (n in 1:N){ -->
-<!--         mu_y[n] = (cp + U[id[n], 1]) * X[n] + -->
-<!--                   (b1 + U[id[n], 2]) * M1[n] + -->
-<!--                   (b2 + U[id[n], 3]) * M2[n] + -->
-<!--                   (dy + U[id[n], 4]); -->
-<!--         mu_m1[n] = (a1 + U[id[n], 5]) * X[n] + -->
-<!--                    (dm1 + U[id[n], 6]); -->
-<!--         mu_m2[n] = (a2 + U[id[n], 7]) * X[n] + -->
-<!--                    (dm2 + U[id[n], 8]); -->
-<!--     } -->
-
-<!--     // Data model -->
-<!--     Y ~ normal(mu_y, sigma_y); -->
-<!--     M1 ~ normal(mu_m1, sigma_m1); -->
-<!--     M2 ~ normal(mu_m2, sigma_m2); -->
-<!-- } -->
-<!-- generated quantities{     -->
-<!--     matrix[K, K] Omega;         // Correlation matrix -->
-<!--     matrix[K, K] Sigma;         // Covariance matrix -->
-
-<!--     // Average mediation parameters -->
-<!--     real covab1;                 // a-b1 covariance -->
-<!--     real corrab1;                // a-b1 correlation -->
-<!--     real covab2;                 // a-b2 covariance -->
-<!--     real corrab2;                // a-b2 correlation -->
-<!--     real me;                    // Mediated effect -->
-<!--     real c;                     // Total effect -->
-<!--     real pme;                   // % mediated effect -->
-
-<!--     // Person-specific mediation parameters -->
-<!--     vector[J] u_a1; -->
-<!--     vector[J] u_b1; -->
-<!--     vector[J] u_a2; -->
-<!--     vector[J] u_b2; -->
-<!--     vector[J] u_cp; -->
-<!--     vector[J] u_dy; -->
-<!--     vector[J] u_dm1; -->
-<!--     vector[J] u_dm2; -->
-<!--     vector[J] u_c; -->
-<!--     vector[J] u_me; -->
-<!--     vector[J] u_pme; -->
-
-<!--     // Re-named tau parameters for easy output -->
-<!--     real tau_cp; -->
-<!--     real tau_b1; -->
-<!--     real tau_a1; -->
-<!--     real tau_b2; -->
-<!--     real tau_a2; -->
-<!--     real tau_dy; -->
-<!--     real tau_dm1; -->
-<!--     real tau_dm2; -->
-
-<!--     tau_cp  = Tau[1]; -->
-<!--     tau_b1  = Tau[2]; -->
-<!--     tau_b2  = Tau[3]; -->
-<!--     tau_dy  = Tau[4]; -->
-<!--     tau_a1  = Tau[5]; -->
-<!--     tau_dm1 = Tau[6]; -->
-<!--     tau_a2  = Tau[7]; -->
-<!--     tau_dm2 = Tau[8]; -->
-
-<!--     Omega = L_Omega * L_Omega'; -->
-<!--     Sigma = quad_form_diag(Omega, Tau); -->
-
-<!--     covab1 = Sigma[2,5]; -->
-<!--     corrab1 = Omega[2,5]; -->
-<!--     covab2 = Sigma[3,7]; -->
-<!--     corrab2 = Omega[3,7]; -->
-<!--     me = a1*b1 * a2*b2 + covab1 * covab2 ; -->
-<!--     c = cp + me; -->
-<!--     pme = me / c; -->
-
-<!--     for (j in 1:J) { -->
-<!--         u_cp[j] = cp + U[j, 1]; -->
-<!--         u_b2[j] = b2 + U[j, 2]; -->
-<!--         u_b1[j] = b1 + U[j, 3]; -->
-<!--         u_dy[j] = dy + U[j, 4]; -->
-<!--         u_a1[j] = a1 + U[j, 5]; -->
-<!--         u_dm1[j] = dm1 + U[j, 6]; -->
-<!--         u_a2[j] = a2 + U[j, 7]; -->
-<!--         u_dm2[j] = dm2 + U[j, 8]; -->
-<!--         u_me[j] = (a1 + U[j, 5]) * (b1 + U[j, 2]) * (a2 + U[j, 7]) * (b2 + U[j, 3]); -->
-<!--         u_c[j] = u_cp[j] + u_me[j]; -->
-<!--         u_pme[j] = u_me[j] / u_c[j]; -->
-<!--     } -->
-<!-- } -->
-<!-- " -->
-
-
-
-
-<!-- mlm.doub = function (d = NULL,  -->
-<!--                      id = "id", x = "x", m1 = "m1", m2 = "m2", y = "y",  -->
-<!--                      priors = NULL, binary_y = FALSE, ...) { -->
-<!--     if (is.null(d))  -->
-<!--         stop("No data entered") -->
-<!--     if (class(d)[1] == "tbl_df")  -->
-<!--         d <- as.data.frame(d) -->
-<!--     default_priors <- list(dm1 = 1000, tau_dm1 = 50, dm2 = 1000, tau_dm2 = 50,  -->
-<!--         dy = 1000, tau_dy = 50,  -->
-<!--         a1 = 1000, tau_a1 = 50, a2 = 1000, tau_a2 = 50,  -->
-<!--         b1 = 1000, tau_b1 = 50, b2 = 1000, tau_b2 = 50,  -->
-<!--         cp = 1000, tau_cp = 50, lkj_shape = 1) -->
-<!--     if (is.null(priors$dm1))  -->
-<!--         priors$dm1 <- default_priors$dm1 -->
-<!--     if (is.null(priors$dm2))  -->
-<!--         priors$dm2 <- default_priors$dm2 -->
-<!--     if (is.null(priors$dy))  -->
-<!--         priors$dy <- default_priors$dy -->
-<!--     if (is.null(priors$a1))  -->
-<!--         priors$a1 <- default_priors$a1 -->
-<!--     if (is.null(priors$b1))  -->
-<!--         priors$b1 <- default_priors$b1 -->
-<!--     if (is.null(priors$a2))  -->
-<!--         priors$a2 <- default_priors$a2 -->
-<!--     if (is.null(priors$b2))  -->
-<!--         priors$b2 <- default_priors$b2 -->
-<!--     if (is.null(priors$cp))  -->
-<!--         priors$cp <- default_priors$cp -->
-<!--     if (is.null(priors$tau_dm1))  -->
-<!--         priors$tau_dm1 <- default_priors$tau_dm1 -->
-<!--     if (is.null(priors$tau_dm2))  -->
-<!--         priors$tau_dm2 <- default_priors$tau_dm2 -->
-<!--     if (is.null(priors$tau_dy))  -->
-<!--         priors$tau_dy <- default_priors$tau_dy -->
-<!--     if (is.null(priors$tau_a1))  -->
-<!--         priors$tau_a1 <- default_priors$tau_a1 -->
-<!--     if (is.null(priors$tau_b1))  -->
-<!--         priors$tau_b1 <- default_priors$tau_b1 -->
-<!--     if (is.null(priors$tau_a2))  -->
-<!--         priors$tau_a2 <- default_priors$tau_a2 -->
-<!--     if (is.null(priors$tau_b2))  -->
-<!--         priors$tau_b2 <- default_priors$tau_b2 -->
-<!--     if (is.null(priors$tau_cp))  -->
-<!--         priors$tau_cp <- default_priors$tau_cp -->
-<!--     if (is.null(priors$lkj_shape))  -->
-<!--         priors$lkj_shape <- default_priors$lkj_shape -->
-<!--     names(priors) <- lapply(names(priors), function(x) paste0("prior_",  -->
-<!--         x)) -->
-<!--     ld <- list() -->
-<!--     ld$id = as.integer(as.factor(as.character(d[, id]))) -->
-<!--     ld$X = d[, x] -->
-<!--     ld$M1 = d[, m1] -->
-<!--     ld$M2 = d[, m2] -->
-<!--     ld$Y = d[, y] -->
-<!--     ld$J <- length(unique(ld$id)) -->
-<!--     ld$N <- nrow(d) -->
-<!--     ld <- append(ld, priors) -->
-<!--     # if (binary_y) { -->
-<!--     #     model_s <- stanmodels$bmlm_binary_y -->
-<!--     # } -->
-<!--     # else { -->
-<!--     #     model_file <- system.file("stan/bmlm.doub.stan", package="bmlm") -->
-<!--     # } -->
-<!--     message("Estimating model, please wait.") -->
-<!--     mod = stan_model(system.file("stan/bmlm.doub.stan", package="bmlm"), -->
-<!--                      model_code = stancode,  -->
-<!--                      model_name = "double_mediation",  -->
-<!--                      verbose = T) -->
-<!--     fit <- rstan::sampling(object = mod,  -->
-<!--                            data = ld,  -->
-<!--                            pars = c("U","z_U", "L_Omega", "Tau", "Sigma"),  -->
-<!--                            include = FALSE) -->
-<!--     return(fit) -->
-<!-- } -->
-<!-- ``` -->
-
-
-<!-- #### Actual model -->
-
-<!-- ```{r} -->
-<!-- mlm.double = mlm.doub(d = df.MLM, -->
-<!--               id = "SubID", -->
-<!--               x  = "SIZE", -->
-<!--               m1 = "FAM", -->
-<!--               m2 = "GEND",  -->
-<!--               y  = "RT") -->
-<!-- mlm_summary(mlm.gend) -->
-<!-- ``` -->
 
