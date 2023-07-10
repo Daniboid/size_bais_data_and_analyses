@@ -1,0 +1,79 @@
+---
+title: "Bigger is Better - Supplementary Analysis"
+author: "Daniel Larranaga & Anne B. Sereno"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+require("lavaan")
+require("semPlot")
+
+load("LDT_OpenData.Rdata")
+```
+
+# Supplemental Analyses:
+
+This analysis follows a similar format to what was conducted by Scott et al. (2021). However, our factors were created using an EFA rather than PCA. Size was left out of the EFA, and allowed to be it's own covariate in our model. Scales were allowed to cross-load on multiple factors so long as they were significant predictors of that factor in the EFA and the loading was greater than 0.3. Factors were named after the scale that loaded highest onto that factor.
+
+
+## RT 
+```{r}
+# paran(WR.data[,c(2,3,5:10,12)], cfa =T)
+
+# print(efa(WR.data[,c(2,3,5:10,12)], nfactors = 4), cutoff = .3)
+
+sem_model = "
+  IMAG =~ Imagability + Concreteness + Familiarity
+  GEND =~ Gender + Familiarity
+  LIKE =~ Likability + Arousal + Pleasantness + Valence
+  EMOT =~ Emotionality + Arousal
+  
+  RT ~ d*Size + EMOT + IMAG + GEND + LIKE
+  EMOT ~ i1*Size
+  IMAG ~ i2*Size
+  GEND ~ i3*Size
+  LIKE ~ i4*Size
+  
+"
+
+sem_analysis = sem(sem_model,
+                   data = LDT.finalData,
+                   cluster = "SubID")
+
+summary(sem_analysis, std = T)
+
+semPaths(sem_analysis, what = "paths",
+         whatLabels = "est", layout = "circle",
+         exoVar = F, exoCov = F, residuals = F,
+         nCharNodes = 5, intercepts = F)
+```
+
+### Take-away
+
+```{r results='asis', echo=FALSE}
+sem_coefs = coef(sem_analysis)
+tot_ind_size_eff = unname(sem_coefs["i1"]*sem_coefs["RT~EMOT"] + 
+  sem_coefs["i2"]*sem_coefs["RT~IMAG"] + 
+  sem_coefs["i3"]*sem_coefs["RT~GEND"] + 
+  sem_coefs["i4"]*sem_coefs["RT~LIKE"])
+total_size_eff = unname(tot_ind_size_eff + sem_coefs["d"])
+
+cat(
+    'The direct effect of size on RT was such that a one unit increase in size resulted in a',
+    unname(round(sem_coefs["d"], 3)), 'ms change in RT.  \n')
+cat(
+    'The total indirect effect of size on RT, including paths through each latent factor constructed was such that a one unit increase in size resulted in a',
+    unname(tot_ind_size_eff), 'ms change in RT.  \n')
+cat(
+    'The total effect of size on RT, including both direct and indirect effects, was such that a one unit increase in size resulted in a',
+    round(total_size_eff, 3), 'ms change in RT.  \n'
+)
+```
+
+
+## Accuracy 
+
+The accuracy effect model failed to converge, likely due to a ceiling effect for accuracy.
